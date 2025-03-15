@@ -166,6 +166,12 @@ impl PartialOrd for PyLang {
 impl Eq for PyLang {}
 
 impl egg::Language for PyLang {
+    type Discriminant = usize;
+
+    fn discriminant(&self) -> Self::Discriminant {
+        self.obj.as_ptr() as usize
+    }
+
     fn matches(&self, other: &Self) -> bool {
         self.obj.as_ptr() == other.obj.as_ptr() && self.children.len() == other.children.len()
     }
@@ -204,6 +210,7 @@ impl Pattern {
     }
 }
 
+#[allow(dead_code)]
 fn build_recexpr(ast: &mut egg::RecExpr<PyLang>, tree: &PyAny) -> egg::Id {
     if let Ok(Id(id)) = tree.extract() {
         panic!("Ids are unsupported in recexprs: {}", id)
@@ -271,7 +278,7 @@ struct PyAnalysis {
 impl egg::Analysis<PyLang> for PyAnalysis {
     type Data = Option<PyObject>;
 
-    fn make(egraph: &egg::EGraph<PyLang, Self>, enode: &PyLang) -> Self::Data {
+    fn make(egraph: &mut egg::EGraph<PyLang, Self>, enode: &PyLang) -> Self::Data {
         let eval = egraph.analysis.eval.as_ref()?;
         let py = unsafe { Python::assume_gil_acquired() };
 
@@ -489,7 +496,6 @@ impl EGraph {
     }
 
     fn intersect(&mut self, other: &mut EGraph) -> EGraph {
-        let mut result = egg::EGraph::new(self.egraph.analysis.clone()).with_explanations_enabled();
         let result = self.egraph.egraph_intersect(&other.egraph, self.egraph.analysis.clone());
 
         EGraph {
